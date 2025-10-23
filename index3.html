@@ -1,0 +1,672 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Study Manager — Dashboard & Monthly Report</title>
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    /* ---------- Reset & base ---------- */
+    *{box-sizing:border-box}
+    body{
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      margin:0; background:#f3f6f9; color:#213044;
+    }
+    header{background:#fff;border-bottom:1px solid #e6eef7;padding:14px 20px;display:flex;justify-content:space-between;align-items:center}
+    .brand{display:flex;align-items:center;gap:12px}
+    .logo{width:36px;height:36px;background:#1e88ff;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff}
+    h1{font-size:18px;margin:0;color:#0b4d8a}
+    .subtitle{font-size:12px;color:#7b8b99}
+    .header-right{text-align:right}
+    .date-box{font-weight:700;color:#3b586f;font-size:13px}
+    main{padding:18px}
+    .controls { display:flex; gap:8px; align-items:center; }
+    /* ---------- Mobile-friendly adjustments ---------- */
+@media (max-width: 768px) {
+  body {
+    font-size: 14px;
+  }
+
+  header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 12px 16px;
+  }
+
+  .header-right {
+    text-align: left;
+    margin-top: 6px;
+  }
+
+  .grid {
+    display: block;
+    margin: 0 12px;
+  }
+
+  .card {
+    margin-bottom: 16px;
+  }
+
+  .controls-row {
+    flex-direction: column;
+  }
+
+  .month-grid {
+    grid-template-columns: repeat(2, 1fr);
+    overflow-x: auto;
+  }
+
+  .day-box {
+    min-height: 60px;
+    padding: 6px;
+  }
+
+  .timer-large .time-display {
+    font-size: 32px;
+  }
+
+  .subtitle {
+    font-size: 12px;
+  }
+
+  .btn-primary, .btn-ghost, .btn-warn, .btn-muted {
+    padding: 8px 10px;
+    font-size: 14px;
+  }
+
+  #queue-list .list-item, #completed-list .completed-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  #queue-list .act-buttons {
+    margin-top: 6px;
+  }
+}
+
+
+    /* ---------- grid ---------- */
+    .grid{max-width:1180px;margin:0 auto;display:grid;gap:18px;grid-template-columns:repeat(12,1fr)}
+    .card{background:#fff;border-radius:10px;padding:16px;box-shadow:0 6px 18px rgba(30,45,70,0.04);border:1px solid rgba(18,34,51,0.04)}
+    .c-add{grid-column:1/ span 3;min-height:210px}
+    .c-progress{grid-column:4/ span 4;min-height:210px}
+    .c-timer{grid-column:8/ span 5;min-height:210px}
+    .c-queue{grid-column:1/ span 8;min-height:220px}
+    .c-completed{grid-column:9/ span 4;min-height:220px}
+    @media (max-width:980px){.c-add,.c-progress,.c-timer,.c-queue,.c-completed{grid-column:1/-1}}
+
+    /* ---------- typography & inputs ---------- */
+    h3{margin:0 0 10px 0;color:#1b4b8a; display:flex; align-items:center; gap:8px}
+    .field{margin-bottom:10px}
+    input{width:100%;padding:10px;border-radius:8px;border:1px solid #d9e6f2;background:#fbfdff}
+    .btn-primary{background:#1e88ff;color:#fff;border:none;padding:10px 12px;border-radius:8px;font-weight:700;cursor:pointer}
+    .btn-primary:hover{background:#166fe6}
+
+    /* progress */
+    .progress-top{display:flex;justify-content:space-between;align-items:center}
+    .progress-bar-bg{height:12px;background:#eef6fb;border-radius:8px;overflow:hidden;margin:12px 0}
+    .progress-bar-fill{height:100%;width:0;background:#1e88ff;transition:width .6s ease}
+    .progress-stats{display:flex;justify-content:space-between;margin-top:8px;color:#2f536f;font-weight:700}
+
+    /* timer */
+    .timer-large{text-align:center}
+    .task-title{font-weight:800;color:#123e66;margin-bottom:8px}
+    .time-display{font-size:42px;color:#0d63a8;font-weight:900;margin:8px 0}
+    .controls-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+    .btn-ghost{background:#eef7ff;color:#0d63a8;border:none;padding:10px 14px;border-radius:8px;cursor:pointer;font-weight:800}
+    .btn-warn{background:#ff8a00;color:#fff;border:none;padding:10px 14px;border-radius:8px;cursor:pointer;font-weight:800}
+    .btn-ghost:disabled,.btn-primary:disabled,.btn-warn:disabled{opacity:.6;cursor:not-allowed}
+
+    /* lists */
+    .list-item{display:flex;justify-content:space-between;align-items:center;padding:12px;border-radius:8px;border:1px solid #eef6fb;margin-bottom:10px;background:#fff}
+    .act-buttons{display:flex;gap:8px}
+    .btn-start{background:#1e88ff;color:#fff;border:none;padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:800}
+    .btn-del{background:#ff5b5b;color:#fff;border:none;padding:8px 10px;border-radius:8px;cursor:pointer}
+    .completed-item{background:#f3fff3;border:1px solid #d7f0d8;padding:10px;border-radius:8px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+    .completed-meta{font-size:12px;color:#497a3f;text-align:right}
+
+    .clear-btn{display:block;margin:18px auto 60px;background:#ff4b4b;color:#fff;border:none;padding:12px 16px;border-radius:8px;font-weight:800;cursor:pointer}
+
+    /* toast */
+    .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#1eab6b;color:#fff;padding:10px 16px;border-radius:12px;opacity:0;pointer-events:none;transition:opacity .25s;font-weight:800;box-shadow:0 8px 20px rgba(16,40,20,.12)}
+    .toast.show{opacity:1;pointer-events:auto}
+
+    /* monthly report styles */
+    .report-wrap{max-width:1180px;margin:16px auto 120px;padding:18px;display:none}
+    .report-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+    .month-controls{display:flex;gap:8px;align-items:center}
+    .month-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:10px}
+    .day-box{background:#fff;border-radius:8px;padding:10px;min-height:90px;border:1px solid #e6eef7;display:flex;flex-direction:column;justify-content:space-between}
+    .day-box.small{min-height:70px}
+    .day-box .day-num{font-weight:800;color:#123e66}
+    .day-box .day-min{font-weight:700;color:#0d63a8}
+    .day-box .day-empty{color:#9bb0c6;font-size:12px}
+    .day-box.goal-met{background:#e8f7ee;border-color:#cbeed4}
+    .legend{display:flex;gap:8px;align-items:center;color:#556b7b;font-size:13px;margin-top:8px}
+    .legend span{display:inline-flex;align-items:center;gap:6px}
+    .legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+    .btn-muted{background:#f0f4f8;border:1px solid #e0eef9;padding:8px 10px;border-radius:8px;cursor:pointer}
+
+    /* day detail */
+    .day-detail{margin-top:14px;background:#fff;padding:12px;border-radius:8px;border:1px solid #eef6fb}
+    .day-detail h4{margin:0 0 8px 0}
+    .small-canvas{width:100%;max-width:400px;height:200px;margin:0 auto}
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <div class="logo"><i class="fas fa-graduation-cap"></i></div>
+      <div>
+        <h1>Study Manager</h1>
+       <div class="subtitle" id="motivational-quote">"Success is the sum of small efforts repeated day in and day out."</div>
+
+      </div>
+    </div>
+
+    <div class="header-right">
+      <div class="date-box" id="header-date">--/--/----</div>
+      <div class="date-sub">Today</div>
+    </div>
+  </header>
+
+  <main>
+    <!-- top controls -->
+    <div style="max-width:1180px;margin:18px auto 0;display:flex;justify-content:flex-end;gap:8px;padding:0 18px">
+      <div class="controls">
+        <button id="btn-view-dashboard" class="btn-primary"><i class="fas fa-tachometer-alt"></i>&nbsp; Dashboard</button>
+        <button id="btn-view-report" class="btn-ghost" style="background:#fff;border:1px solid #e6eef7"><i class="fas fa-calendar-alt"></i>&nbsp; Monthly Report</button>
+      </div>
+    </div>
+
+    <div class="grid" style="margin-top:12px">
+      <!-- Add -->
+      <div class="card c-add add">
+        <h3><i class="fas fa-plus-circle"></i>&nbsp; Add New Task</h3>
+        <div class="field"><input id="inp-subject" placeholder="Subject (e.g., Mathematics)"></div>
+        <div class="field"><input id="inp-topic" placeholder="Topic (e.g., Calculus - Integration)"></div>
+        <div class="field"><input id="inp-duration" type="number" min="1" placeholder="Duration (minutes)"></div>
+        <button id="btn-add" class="btn-primary"><i class="fas fa-plus"></i>&nbsp; Add to Queue</button>
+      </div>
+
+      <!-- Progress -->
+      <div class="card c-progress">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <h3 style="margin:0;color:#1b4b8a"><i class="fas fa-chart-line"></i>&nbsp; Today's Progress</h3>
+            <div style="font-size:12px;color:#6b7f91;margin-top:4px">Daily goal progress</div>
+          </div>
+          <div class="chart-small">
+            <canvas id="subjectChartSmall"></canvas>
+          </div>
+        </div>
+
+        <div style="margin-top:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="font-weight:800;color:#1b4b8a">Goal: 4 hr (240 min)</div>
+            <div id="progress-text" style="font-weight:800;color:#274b6a">0 min / 240 min</div>
+          </div>
+          <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill"></div></div>
+          <div class="progress-stats">
+            <div><strong id="stat-tasks">0</strong><div style="font-size:12px;color:#758a99">Tasks Completed</div></div>
+            <div><strong id="stat-subjects">0</strong><div style="font-size:12px;color:#758a99">Subjects Covered</div></div>
+            <div><strong id="stat-time">0m</strong><div style="font-size:12px;color:#758a99">Total Today</div></div>
+          </div>
+          <div class="green-note" id="progress-note">Start studying — small steps daily build mastery!</div>
+        </div>
+      </div>
+
+      <!-- Timer -->
+      <div class="card c-timer">
+        <h3 style="margin:0;color:#1b4b8a"><i class="fas fa-stopwatch"></i>&nbsp; Active Timer</h3>
+        <div class="timer-large" style="margin-top:10px">
+          <div class="task-title" id="active-title">No Active Task</div>
+          <div class="time-display" id="time-display">00:00</div>
+          <div class="controls-row">
+            <button id="btn-pause" class="btn-ghost" disabled><i class="fas fa-pause"></i>&nbsp; Pause</button>
+            <button id="btn-reset" class="btn-ghost" disabled><i class="fas fa-undo"></i>&nbsp; Reset</button>
+            <button id="btn-skip" class="btn-warn" disabled><i class="fas fa-forward"></i>&nbsp; Skip</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Queue -->
+      <div class="card c-queue">
+        <h3 style="margin:0;color:#1b4b8a"><i class="fas fa-list"></i>&nbsp; Study Queue <small id="queue-count" style="color:#7a93a8;margin-left:8px">(0 tasks)</small></h3>
+        <div id="queue-list" style="margin-top:12px"></div>
+      </div>
+
+      <!-- Completed -->
+      <div class="card c-completed">
+        <h3 style="margin:0;color:#1b4b8a"><i class="fas fa-check-circle"></i>&nbsp; Completed Tasks <small id="completed-count" style="color:#7a93a8;margin-left:8px">(0 today)</small></h3>
+        <div id="completed-list" style="margin-top:12px"></div>
+      </div>
+    </div>
+
+    <button id="btn-clear" class="clear-btn"><i class="fas fa-trash-alt"></i>&nbsp; Clear All Completed Tasks</button>
+  </main>
+
+  <!-- Monthly report area (toggle visible) -->
+  <section class="report-wrap" id="report-wrap">
+    <div class="report-header">
+      <div><h3 style="margin:0;color:#1b4b8a"><i class="fas fa-calendar-alt"></i>&nbsp; Monthly Report</h3>
+        <div style="color:#6b7f91;font-size:13px;margin-top:6px">Click a day to view details</div>
+      </div>
+      <div class="month-controls">
+        <button id="prev-month" class="btn-muted"><i class="fas fa-chevron-left"></i></button>
+        <div id="report-month" style="font-weight:800;color:#123e66;padding:0 8px"></div>
+        <button id="next-month" class="btn-muted"><i class="fas fa-chevron-right"></i></button>
+        <button id="btn-back-dashboard" class="btn-primary" style="margin-left:12px"><i class="fas fa-arrow-left"></i>&nbsp; Back</button>
+      </div>
+    </div>
+
+    <div class="legend">
+      <span><i style="background:#e8f7ee"></i>&nbsp; Goal met (≥240m)</span>
+      <span><i style="background:#fff8e6"></i>&nbsp; Some study</span>
+      <span><i style="background:#fff"></i>&nbsp; No study</span>
+    </div>
+
+    <div id="month-grid" class="month-grid" style="margin-top:12px"></div>
+
+    <div id="day-detail" class="day-detail" style="display:none">
+      <h4 id="day-detail-title">Details</h4>
+      <div id="day-detail-list"></div>
+      <div style="margin-top:12px">
+        <canvas id="dayPie" class="small-canvas"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <div class="toast" id="toast">Done</div>
+
+  <script>
+  /* ======================
+     Extended Study Manager
+     Monthly storage + day detail
+     ====================== */
+
+  // DOM refs
+  const headerDate = document.getElementById('header-date');
+  const inpSubject = document.getElementById('inp-subject');
+  const inpTopic = document.getElementById('inp-topic');
+  const inpDuration = document.getElementById('inp-duration');
+  const btnAdd = document.getElementById('btn-add');
+  const queueList = document.getElementById('queue-list');
+  const queueCount = document.getElementById('queue-count');
+  const activeTitle = document.getElementById('active-title');
+  const timeDisplay = document.getElementById('time-display');
+  const btnPause = document.getElementById('btn-pause');
+  const btnReset = document.getElementById('btn-reset');
+  const btnSkip = document.getElementById('btn-skip');
+  const completedListEl = document.getElementById('completed-list');
+  const completedCountEl = document.getElementById('completed-count');
+  const progressFill = document.getElementById('progressFill');
+  const progressText = document.getElementById('progress-text');
+  const statTasks = document.getElementById('stat-tasks');
+  const statSubjects = document.getElementById('stat-subjects');
+  const statTime = document.getElementById('stat-time');
+  const toastEl = document.getElementById('toast');
+  const btnClear = document.getElementById('btn-clear');
+  const subjectChartSmall = document.getElementById('subjectChartSmall').getContext('2d');
+
+  // monthly report elements
+  const btnViewDashboard = document.getElementById('btn-view-dashboard');
+  const btnViewReport = document.getElementById('btn-view-report');
+  const reportWrap = document.getElementById('report-wrap');
+  const reportMonthLabel = document.getElementById('report-month');
+  const monthGrid = document.getElementById('month-grid');
+  const prevMonthBtn = document.getElementById('prev-month');
+  const nextMonthBtn = document.getElementById('next-month');
+  const dayDetail = document.getElementById('day-detail');
+  const dayDetailTitle = document.getElementById('day-detail-title');
+  const dayDetailList = document.getElementById('day-detail-list');
+  const dayPieCtx = document.getElementById('dayPie').getContext('2d');
+  const btnBackDashboard = document.getElementById('btn-back-dashboard');
+
+  // constants and state
+  const DAILY_GOAL_MIN = 240;
+  let queue = JSON.parse(localStorage.getItem('sm_queue') || '[]');     // queue tasks (not started)
+  // monthly data stored as sm_month_{YYYY-MM} => { 'dd-mm-yyyy': {tasks: [...], total: n} }
+  let currentMonth = new Date(); // month being viewed in report
+  let monthDataKey = monthKey(currentMonth); // key string for localStorage
+  let monthStore = loadMonthStore(currentMonth); // object for that month
+  let completedToday = loadDayRecord(new Date()); // today's completed tasks (array)
+  let activeTask = null; let remaining = 0; let timerInterval = null;
+  let paused = false;
+
+  // charts
+  let smallChart = new Chart(subjectChartSmall, { type:'pie', data:{labels:[],datasets:[{data:[],backgroundColor:[]}]}, options:{plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false}});
+  let detailPie = new Chart(dayPieCtx, { type:'pie', data:{labels:[],datasets:[{data:[],backgroundColor:[]}]}, options:{plugins:{legend:{position:'bottom'}},responsive:true,maintainAspectRatio:false}});
+
+  /* ---------- Utilities ---------- */
+  function todayKey(date = new Date()){
+    const dd = String(date.getDate()).padStart(2,'0');
+    const mm = String(date.getMonth()+1).padStart(2,'0');
+    const yyyy = date.getFullYear();
+    return `${dd}-${mm}-${yyyy}`;
+  }
+  function monthKey(d){
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    return `sm_month_${yyyy}-${mm}`;
+  }
+  function colorForIndex(i){ const palette=['#2563eb','#22c55e','#f59e0b','#ef4444','#a855f7','#06b6d4','#f97316']; return palette[i%palette.length]; }
+  function escapeHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function showToast(msg){ toastEl.textContent = msg; toastEl.classList.add('show'); setTimeout(()=>toastEl.classList.remove('show'),2500); }
+  function persistQueue(){ localStorage.setItem('sm_queue', JSON.stringify(queue)); }
+  function saveMonthStore(){ localStorage.setItem(monthDataKey, JSON.stringify(monthStore)); }
+
+  /* ---------- Month store handling ---------- */
+  function loadMonthStore(dateObj){
+    monthDataKey = monthKey(dateObj);
+    const raw = localStorage.getItem(monthDataKey);
+    if (!raw) return {}; // empty mapping
+    try { return JSON.parse(raw) || {}; } catch(e){ return {}; }
+  }
+  function loadDayRecord(dateObj){
+    const key = todayKey(dateObj);
+    const mkey = monthKey(dateObj);
+    const raw = localStorage.getItem(mkey);
+    if (!raw) return [];
+    try{
+      const mstore = JSON.parse(raw) || {};
+      return mstore[key] ? (mstore[key].tasks || []) : [];
+    }catch(e){return [];}
+  }
+
+  /* ---------- Header date ---------- */
+  function setHeaderDate(){ headerDate.textContent = todayKey(new Date()); }
+
+  /* ---------- Queue rendering ---------- */
+  function renderQueue(){
+    queueList.innerHTML = '';
+    queueCount.textContent = `(${queue.length} tasks)`;
+    queue.forEach((t,i)=>{
+      const div = document.createElement('div');
+      div.className = 'list-item';
+      div.innerHTML = `<div><strong>${escapeHtml(t.subject)}</strong><div style="font-size:12px;color:#6b7f91">${escapeHtml(t.topic)} <small style="display:block;color:#99abb8">Duration: ${t.duration} min</small></div></div>
+        <div class="act-buttons">
+          <button class="btn-start" data-index="${i}"><i class="fas fa-play"></i>&nbsp;Start</button>
+          <button class="btn-del" data-index="${i}"><i class="fas fa-trash"></i></button>
+        </div>`;
+      queueList.appendChild(div);
+    });
+    // wire up
+    queueList.querySelectorAll('.btn-start').forEach(btn=>{
+      btn.onclick = e => {
+        const idx = Number(btn.dataset.index);
+        if (activeTask){ showToast('Finish or skip current task first'); return; }
+        const task = queue.splice(idx,1)[0];
+        persistQueue(); renderQueue();
+        activeTask = task; remaining = Number(task.duration)*60;
+        renderActive(); startTimer();
+      };
+    });
+    queueList.querySelectorAll('.btn-del').forEach(btn=>{
+      btn.onclick = e => {
+        const idx = Number(btn.dataset.index); queue.splice(idx,1); persistQueue(); renderQueue(); showToast('Task removed');
+      };
+    });
+  }
+
+  /* ---------- Completed rendering (today) ---------- */
+  function renderCompleted(){
+    // today's completed tasks from monthStore under today's key
+    const today = todayKey(new Date());
+    const rec = (monthStore[today] && monthStore[today].tasks) ? monthStore[today].tasks : [];
+    completedListEl.innerHTML = '';
+    rec.forEach(c=>{
+      const div = document.createElement('div'); div.className='completed-item';
+      div.innerHTML = `<div><strong>${escapeHtml(c.subject)}</strong><div style="font-size:12px;color:#5b7b66">${escapeHtml(c.topic)}</div></div>
+        <div class="completed-meta"><div>${c.duration} min</div><div style="font-size:12px;color:#6b7f91">${c.time}</div></div>`;
+      completedListEl.appendChild(div);
+    });
+    completedCountEl.textContent = `(${rec.length} today)`;
+  }
+
+  /* ---------- Progress & small chart ---------- */
+  function updateProgressAndChart(){
+    const today = todayKey(new Date());
+    const rec = (monthStore[today] && monthStore[today].tasks) ? monthStore[today].tasks : [];
+    const total = rec.reduce((acc,t)=>acc+Number(t.duration),0);
+    const percent = Math.min((total/DAILY_GOAL_MIN)*100,100);
+    progressFill.style.width = percent + '%';
+    progressText.textContent = `${total} min / ${DAILY_GOAL_MIN} min`;
+    statTasks.textContent = rec.length;
+    const subjects = [...new Set(rec.map(c=>c.subject))];
+    statSubjects.textContent = subjects.length;
+    statTime.textContent = `${total}m`;
+
+    // small pie
+    const subjectMap = {};
+    rec.forEach(c=> subjectMap[c.subject] = (subjectMap[c.subject]||0) + Number(c.duration));
+    smallChart.data.labels = Object.keys(subjectMap);
+    smallChart.data.datasets[0].data = Object.values(subjectMap);
+    smallChart.data.datasets[0].backgroundColor = Object.keys(subjectMap).map((s,i)=>colorForIndex(i));
+    smallChart.update();
+  }
+
+  /* ---------- Active timer rendering ---------- */
+  function renderActive(){
+    if(!activeTask){
+      activeTitle.textContent = 'No Active Task'; timeDisplay.textContent = '00:00';
+      btnPause.disabled = true; btnReset.disabled = true; btnSkip.disabled = true;
+    } else {
+      activeTitle.textContent = `${activeTask.subject} — ${activeTask.topic}`;
+      const m = Math.floor(remaining/60); const s = remaining%60;
+      timeDisplay.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+      btnPause.disabled = false; btnReset.disabled = false; btnSkip.disabled = false;
+    }
+  }
+
+  /* ---------- Timer controls ---------- */
+  function startTimer(){
+    if(!activeTask) return;
+    if(timerInterval) clearInterval(timerInterval);
+    paused=false; btnPause.textContent = 'Pause';
+    timerInterval = setInterval(()=>{
+      if(remaining>0){ remaining--; renderActive(); }
+      else { clearInterval(timerInterval); timerInterval=null; finishActive(); }
+    },1000);
+  }
+
+  function finishActive(){
+    if(!activeTask) return;
+    const now = new Date(); const hh=String(now.getHours()).padStart(2,'0'); const mm=String(now.getMinutes()).padStart(2,'0');
+    const dayKey = todayKey(new Date());
+    // ensure day record exists in monthStore
+    if(!monthStore[dayKey]) monthStore[dayKey] = { tasks: [], total: 0 };
+    monthStore[dayKey].tasks.unshift({ subject: activeTask.subject, topic: activeTask.topic, duration: activeTask.duration, time: `${hh}:${mm}` });
+    monthStore[dayKey].total = (monthStore[dayKey].tasks.reduce((acc,t)=>acc + Number(t.duration),0));
+    saveMonthStore();
+    showToast(`Completed: ${activeTask.topic}`);
+    activeTask = null; remaining = 0;
+    renderActive(); renderCompleted(); updateProgressAndChart();
+    // do NOT auto-start next according to your request
+  }
+
+  btnPause.addEventListener('click', ()=>{
+    if(!activeTask) return;
+    if(timerInterval){ clearInterval(timerInterval); timerInterval=null; paused=true; btnPause.textContent='Resume'; showToast('Paused'); }
+    else { startTimer(); showToast('Resumed'); }
+  });
+  btnReset.addEventListener('click', ()=>{ if(!activeTask) return; remaining = Number(activeTask.duration)*60; renderActive(); showToast('Timer reset'); });
+  btnSkip.addEventListener('click', ()=>{ if(!activeTask) return; activeTask=null; if(timerInterval){clearInterval(timerInterval);timerInterval=null;} renderActive(); showToast('Skipped'); });
+
+  /* ---------- Add to queue ---------- */
+  btnAdd.addEventListener('click', ()=>{
+    const subj = inpSubject.value.trim(); const top = inpTopic.value.trim(); const dur = Number(inpDuration.value);
+    if(!subj || !top || !dur || dur<=0){ alert('Please enter subject, topic and valid duration (minutes).'); return; }
+    queue.push({ subject: subj, topic: top, duration: dur });
+    persistQueue(); renderQueue(); showToast('Task added to queue');
+    inpSubject.value=''; inpTopic.value=''; inpDuration.value='';
+  });
+
+  /* ---------- Queue load/persist ---------- */
+  function loadQueue(){ queue = JSON.parse(localStorage.getItem('sm_queue') || '[]'); }
+  function persistQueue(){ localStorage.setItem('sm_queue', JSON.stringify(queue)); }
+
+  /* ---------- Completed list render (today) ---------- */
+  function renderCompleted(){ /* done above but call here to sync */ 
+    const today = todayKey(new Date());
+    const rec = monthStore[today] && monthStore[today].tasks ? monthStore[today].tasks : [];
+    completedListEl.innerHTML=''; rec.forEach(c=>{
+      const div=document.createElement('div'); div.className='completed-item';
+      div.innerHTML=`<div><strong>${escapeHtml(c.subject)}</strong><div style="font-size:12px;color:#5b7b66">${escapeHtml(c.topic)}</div></div>
+        <div class="completed-meta"><div>${c.duration} min</div><div style="font-size:12px;color:#6b7f91">${c.time}</div></div>`;
+      completedListEl.appendChild(div);
+    });
+    completedCountEl.textContent = `(${rec.length} today)`;
+  }
+
+  /* ---------- Monthly Report UI ---------- */
+  function showReportView(){
+    btnViewDashboard.disabled = false;
+    reportWrap.style.display = 'block';
+    document.querySelector('main').style.display = 'none';
+    renderMonthGrid(currentMonth);
+  }
+  function showDashboardView(){
+    reportWrap.style.display = 'none';
+    document.querySelector('main').style.display = 'block';
+  }
+
+  btnViewReport.addEventListener('click', ()=>{ showReportView(); });
+  btnViewDashboard.addEventListener('click', ()=>{ showDashboardView(); });
+  btnBackDashboard.addEventListener('click', ()=>{ showDashboardView(); });
+
+  prevMonthBtn.addEventListener('click', ()=>{ currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth()-1, 1); monthDataKey = monthKey(currentMonth); monthStore = loadMonthStore(currentMonth); renderMonthGrid(currentMonth); });
+  nextMonthBtn.addEventListener('click', ()=>{ currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth()+1, 1); monthDataKey = monthKey(currentMonth); monthStore = loadMonthStore(currentMonth); renderMonthGrid(currentMonth); });
+
+  function renderMonthGrid(d){
+    // show month label
+    const mname = d.toLocaleString('default',{month:'long'}); const yyyy = d.getFullYear();
+    reportMonthLabel.textContent = `${mname} ${yyyy}`;
+    // load month store
+    monthDataKey = monthKey(d); monthStore = loadMonthStore(d);
+    // build calendar grid for that month (Mon-Sun)
+    monthGrid.innerHTML = '';
+    const year = d.getFullYear(); const month = d.getMonth();
+    const first = new Date(year, month, 1);
+    const last = new Date(year, month+1, 0);
+    const startWeekday = first.getDay(); // 0 Sun..6 Sat
+    // show weekday headers
+    const weekdays = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    for(let i=0;i<7;i++){
+      const hd = document.createElement('div'); hd.style.fontWeight='800'; hd.style.color='#556b7b'; hd.style.textAlign='center'; hd.style.padding='6px 0'; hd.textContent = weekdays[i]; monthGrid.appendChild(hd);
+    }
+    // calculate fill blanks to align first day (if first day not sunday)
+    // we'll render boxes for each day (including blanks)
+    const totalBoxes = (7 * Math.ceil((startWeekday + last.getDate())/7));
+    for(let box=0; box<totalBoxes; box++){
+      const idx = box - startWeekday + 1;
+      const boxDiv = document.createElement('div');
+      boxDiv.className = 'day-box';
+      if(idx < 1 || idx > last.getDate()){
+        boxDiv.innerHTML = `<div class="day-num">&nbsp;</div><div class="day-empty">no day</div>`;
+        boxDiv.classList.add('small');
+        monthGrid.appendChild(boxDiv);
+        continue;
+      }
+      const thisDate = new Date(year, month, idx);
+      const dayKey = todayKey(thisDate);
+      const rec = monthStore[dayKey] || { tasks: [], total: 0 };
+      const total = rec.total || (rec.tasks ? rec.tasks.reduce((a,b)=>a+Number(b.duration),0) : 0);
+      // color class if goal met
+      if(total >= DAILY_GOAL_MIN) boxDiv.classList.add('goal-met');
+      boxDiv.innerHTML = `<div><div class="day-num">${idx}</div></div>
+         <div style="margin-top:8px"><div class="day-min">${total>0? total+'m':''}</div><div style="font-size:12px;color:#9bb0c6">${rec.tasks && rec.tasks.length? rec.tasks.length+' tasks':''}</div></div>`;
+      boxDiv.onclick = ()=> openDayDetail(thisDate);
+      monthGrid.appendChild(boxDiv);
+    }
+  }
+
+  function openDayDetail(dateObj){
+    const key = todayKey(dateObj);
+    const rec = monthStore[key] || { tasks: [], total: 0 };
+    dayDetailTitle.textContent = `Details — ${key}`;
+    dayDetailList.innerHTML = '';
+    if(!rec.tasks || rec.tasks.length===0){
+      dayDetailList.innerHTML = '<div style="color:#7b93a6">No study recorded that day.</div>';
+      detailPie.data.labels = []; detailPie.data.datasets[0].data = []; detailPie.update();
+    } else {
+      rec.tasks.forEach(t=>{
+        const div = document.createElement('div'); div.style.padding='8px 0'; div.style.borderBottom='1px dashed #eef6fb';
+        div.innerHTML = `<strong>${escapeHtml(t.subject)}</strong> — ${escapeHtml(t.topic)} <div style="font-size:12px;color:#6b7f91">${t.duration} min • ${t.time}</div>`;
+        dayDetailList.appendChild(div);
+      });
+      // pie chart for that day
+      const subjectMap = {};
+      rec.tasks.forEach(c => subjectMap[c.subject] = (subjectMap[c.subject]||0) + Number(c.duration));
+      detailPie.data.labels = Object.keys(subjectMap);
+      detailPie.data.datasets[0].data = Object.values(subjectMap);
+      detailPie.data.datasets[0].backgroundColor = Object.keys(subjectMap).map((s,i)=> colorForIndex(i));
+      detailPie.update();
+    }
+    dayDetail.style.display = 'block';
+    // scroll to detail
+    dayDetail.scrollIntoView({behavior:'smooth'});
+  }
+
+  /* ---------- Clear completed today ---------- */
+  btnClear.addEventListener('click', ()=>{
+    if(!confirm('Clear all completed tasks for today?')) return;
+    const key = todayKey(new Date()); monthStore[key] = { tasks: [], total: 0 }; saveMonthStore(); renderCompleted(); updateProgressAndChart(); showToast('Cleared today');
+  });
+
+  /* ---------- Initialization ---------- */
+  function init(){
+    setHeaderDate();
+    loadQueue();
+    // load month store for current month
+    monthDataKey = monthKey(currentMonth); monthStore = loadMonthStore(currentMonth);
+    // ensure today's record exists in this month's store
+    const todayk = todayKey(new Date());
+    if(!monthStore[todayk]){ monthStore[todayk] = { tasks: [], total: 0 }; saveMonthStore(); }
+    renderQueue(); renderCompleted(); updateProgressAndChart(); renderActive();
+  }
+
+  init();
+
+  // persist on unload
+  window.addEventListener('beforeunload', ()=>{ persistQueue(); saveMonthStore(); });
+  // motivational quotes array
+const quotes = [
+  "Success is the sum of small efforts repeated day in and day out.",
+  "Don't watch the clock; do what it does — keep going.",
+  "Small daily improvements lead to stunning results.",
+  "Focus on being productive instead of busy.",
+  "Consistency is what transforms average into excellence.",
+  "The secret of getting ahead is getting started.",
+  "Little by little, a little becomes a lot.",
+  "Discipline is choosing between what you want now and what you want most.",
+  "Don't stop until you're proud."
+];
+
+const quoteEl = document.getElementById('motivational-quote');
+
+// function to set a random quote
+function updateQuote() {
+  const idx = Math.floor(Math.random() * quotes.length);
+  quoteEl.textContent = quotes[idx];
+}
+
+// initial quote on page load
+updateQuote();
+
+// change quote every 15 seconds (or any interval you like)
+setInterval(updateQuote, 15000);
+
+
+  </script>
+</body>
+</html>
