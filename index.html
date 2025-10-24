@@ -454,6 +454,7 @@
     showToast(`Completed: ${activeTask.topic}`);
     activeTask = null; remaining = 0;
     renderActive(); renderCompleted(); updateProgressAndChart();
+    updateStreak();
     // do NOT auto-start next according to your request
   }
 
@@ -603,34 +604,46 @@
   function updateQuote() { const idx = Math.floor(Math.random() * quotes.length); quoteEl.textContent = quotes[idx]; }
   updateQuote();
   setInterval(updateQuote, 15000);
-  // =====================
-// Streak feature
+  
+// Fixed Streak Feature
 // =====================
-const MIN_STUDY_FOR_STREAK = 30; // minimum minutes for a day to count
+const MIN_STUDY_FOR_STREAK = 30; // minutes required to count
+const streakDisplay = document.getElementById('streak-display');
 
 let streak = Number(localStorage.getItem('streak') || 0);
+
+function parseDDMMYYYY(str) {
+  const [dd, mm, yyyy] = str.split('-').map(Number);
+  return new Date(yyyy, mm - 1, dd);
+}
 
 function updateStreak() {
   const todayStr = todayKey(new Date());
   const todayTotal = monthStore[todayStr]?.total || 0;
 
-  if (todayTotal < MIN_STUDY_FOR_STREAK) return; // too little, don't count
+  if (todayTotal < MIN_STUDY_FOR_STREAK) {
+    streakDisplay.textContent = `🔥 Streak: ${streak} days`;
+    return;
+  }
 
   const lastDate = localStorage.getItem('lastStreakDate');
+  const today = parseDDMMYYYY(todayStr);
 
   if (lastDate) {
-    const diff = (new Date(todayStr) - new Date(lastDate)) / (1000*60*60*24);
-    if (diff === 1) streak++;      // consecutive day
-    else streak = 1;               // missed day, reset streak
+    const last = parseDDMMYYYY(lastDate);
+    const diffDays = Math.round((today - last) / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 1) streak++;     // continued streak
+    else if (diffDays > 1) streak = 1; // missed day
   } else {
-    streak = 1;                     // first day
+    streak = 1; // first day
   }
 
   localStorage.setItem('streak', streak);
   localStorage.setItem('lastStreakDate', todayStr);
-
   streakDisplay.textContent = `🔥 Streak: ${streak} days`;
 }
+
 
   
 
