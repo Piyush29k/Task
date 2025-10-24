@@ -31,67 +31,20 @@
     .controls { display:flex; gap:8px; align-items:center; }
     /* ---------- Mobile-friendly adjustments ---------- */
 @media (max-width: 768px) {
-  body {
-    font-size: 14px;
-  }
-
-  header {
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 12px 16px;
-  }
-
-  .header-right {
-    text-align: left;
-    margin-top: 6px;
-  }
-
-  .grid {
-    display: block;
-    margin: 0 12px;
-  }
-
-  .card {
-    margin-bottom: 16px;
-  }
-
-  .controls-row {
-    flex-direction: column;
-  }
-
-  .month-grid {
-    grid-template-columns: repeat(2, 1fr);
-    overflow-x: auto;
-  }
-
-  .day-box {
-    min-height: 60px;
-    padding: 6px;
-  }
-
-  .timer-large .time-display {
-    font-size: 32px;
-  }
-
-  .subtitle {
-    font-size: 12px;
-  }
-
-  .btn-primary, .btn-ghost, .btn-warn, .btn-muted {
-    padding: 8px 10px;
-    font-size: 14px;
-  }
-
-  #queue-list .list-item, #completed-list .completed-item {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  #queue-list .act-buttons {
-    margin-top: 6px;
-  }
+  body { font-size: 14px; }
+  header { flex-direction: column; align-items: flex-start; padding: 12px 16px; }
+  .header-right { text-align: left; margin-top: 6px; }
+  .grid { display: block; margin: 0 12px; }
+  .card { margin-bottom: 16px; }
+  .controls-row { flex-direction: column; }
+  .month-grid { grid-template-columns: repeat(2, 1fr); overflow-x: auto; }
+  .day-box { min-height: 60px; padding: 6px; }
+  .timer-large .time-display { font-size: 32px; }
+  .subtitle { font-size: 12px; }
+  .btn-primary, .btn-ghost, .btn-warn, .btn-muted { padding: 8px 10px; font-size: 14px; }
+  #queue-list .list-item, #completed-list .completed-item { flex-direction: column; align-items: flex-start; }
+  #queue-list .act-buttons { margin-top: 6px; }
 }
-
 
     /* ---------- grid ---------- */
     .grid{max-width:1180px;margin:0 auto;display:grid;gap:18px;grid-template-columns:repeat(12,1fr)}
@@ -112,6 +65,8 @@
 
     /* progress */
     .progress-top{display:flex;justify-content:space-between;align-items:center}
+    .chart-small{width:72px;height:72px;display:flex;align-items:center;justify-content:center}
+    .chart-small canvas{width:72px !important;height:72px !important;display:block}
     .progress-bar-bg{height:12px;background:#eef6fb;border-radius:8px;overflow:hidden;margin:12px 0}
     .progress-bar-fill{height:100%;width:0;background:#1e88ff;transition:width .6s ease}
     .progress-stats{display:flex;justify-content:space-between;margin-top:8px;color:#2f536f;font-weight:700}
@@ -169,6 +124,8 @@
       <div>
         <h1>Study Manager</h1>
        <div class="subtitle" id="motivational-quote">"Success is the sum of small efforts repeated day in and day out."</div>
+       <div id="streak-display" style="font-size:12px;color:#ff6b00;margin-top:4px">🔥 Streak: 0 days</div>
+
 
       </div>
     </div>
@@ -290,8 +247,7 @@
 
   <script>
   /* ======================
-     Extended Study Manager
-     Monthly storage + day detail
+     Debugged Study Manager
      ====================== */
 
   // DOM refs
@@ -334,18 +290,28 @@
 
   // constants and state
   const DAILY_GOAL_MIN = 240;
-  let queue = JSON.parse(localStorage.getItem('sm_queue') || '[]');     // queue tasks (not started)
-  // monthly data stored as sm_month_{YYYY-MM} => { 'dd-mm-yyyy': {tasks: [...], total: n} }
+  let queue = [];     // queue tasks (not started)
   let currentMonth = new Date(); // month being viewed in report
-  let monthDataKey = monthKey(currentMonth); // key string for localStorage
-  let monthStore = loadMonthStore(currentMonth); // object for that month
-  let completedToday = loadDayRecord(new Date()); // today's completed tasks (array)
+  let monthDataKey = ''; // computed key for localStorage
+  let monthStore = {}; // object for that month
   let activeTask = null; let remaining = 0; let timerInterval = null;
   let paused = false;
 
   // charts
-  let smallChart = new Chart(subjectChartSmall, { type:'pie', data:{labels:[],datasets:[{data:[],backgroundColor:[]}]}, options:{plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false}});
-  let detailPie = new Chart(dayPieCtx, { type:'pie', data:{labels:[],datasets:[{data:[],backgroundColor:[]}]}, options:{plugins:{legend:{position:'bottom'}},responsive:true,maintainAspectRatio:false}});
+  let smallChart = new Chart(subjectChartSmall, {
+    type:'pie',
+    data:{labels:[],datasets:[{data:[],backgroundColor:[]}]},
+    options:{
+      plugins:{legend:{display:false}},
+      responsive:true,
+      maintainAspectRatio:false
+    }
+  });
+  let detailPie = new Chart(dayPieCtx, {
+    type:'pie',
+    data:{labels:[],datasets:[{data:[],backgroundColor:[]}]},
+    options:{plugins:{legend:{position:'bottom'}},responsive:true,maintainAspectRatio:false}
+  });
 
   /* ---------- Utilities ---------- */
   function todayKey(date = new Date()){
@@ -362,26 +328,18 @@
   function colorForIndex(i){ const palette=['#2563eb','#22c55e','#f59e0b','#ef4444','#a855f7','#06b6d4','#f97316']; return palette[i%palette.length]; }
   function escapeHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
   function showToast(msg){ toastEl.textContent = msg; toastEl.classList.add('show'); setTimeout(()=>toastEl.classList.remove('show'),2500); }
-  function persistQueue(){ localStorage.setItem('sm_queue', JSON.stringify(queue)); }
-  function saveMonthStore(){ localStorage.setItem(monthDataKey, JSON.stringify(monthStore)); }
 
-  /* ---------- Month store handling ---------- */
+  /* ---------- Storage helpers ---------- */
+  function loadQueue(){ queue = JSON.parse(localStorage.getItem('sm_queue') || '[]'); }
+  function persistQueue(){ localStorage.setItem('sm_queue', JSON.stringify(queue)); }
+
   function loadMonthStore(dateObj){
     monthDataKey = monthKey(dateObj);
     const raw = localStorage.getItem(monthDataKey);
     if (!raw) return {}; // empty mapping
     try { return JSON.parse(raw) || {}; } catch(e){ return {}; }
   }
-  function loadDayRecord(dateObj){
-    const key = todayKey(dateObj);
-    const mkey = monthKey(dateObj);
-    const raw = localStorage.getItem(mkey);
-    if (!raw) return [];
-    try{
-      const mstore = JSON.parse(raw) || {};
-      return mstore[key] ? (mstore[key].tasks || []) : [];
-    }catch(e){return [];}
-  }
+  function saveMonthStore(){ if(monthDataKey) localStorage.setItem(monthDataKey, JSON.stringify(monthStore)); }
 
   /* ---------- Header date ---------- */
   function setHeaderDate(){ headerDate.textContent = todayKey(new Date()); }
@@ -405,6 +363,7 @@
       btn.onclick = e => {
         const idx = Number(btn.dataset.index);
         if (activeTask){ showToast('Finish or skip current task first'); return; }
+        if(idx < 0 || idx >= queue.length) return;
         const task = queue.splice(idx,1)[0];
         persistQueue(); renderQueue();
         activeTask = task; remaining = Number(task.duration)*60;
@@ -413,14 +372,15 @@
     });
     queueList.querySelectorAll('.btn-del').forEach(btn=>{
       btn.onclick = e => {
-        const idx = Number(btn.dataset.index); queue.splice(idx,1); persistQueue(); renderQueue(); showToast('Task removed');
+        const idx = Number(btn.dataset.index);
+        if(idx < 0 || idx >= queue.length) return;
+        queue.splice(idx,1); persistQueue(); renderQueue(); showToast('Task removed');
       };
     });
   }
 
   /* ---------- Completed rendering (today) ---------- */
   function renderCompleted(){
-    // today's completed tasks from monthStore under today's key
     const today = todayKey(new Date());
     const rec = (monthStore[today] && monthStore[today].tasks) ? monthStore[today].tasks : [];
     completedListEl.innerHTML = '';
@@ -460,11 +420,13 @@
     if(!activeTask){
       activeTitle.textContent = 'No Active Task'; timeDisplay.textContent = '00:00';
       btnPause.disabled = true; btnReset.disabled = true; btnSkip.disabled = true;
+      btnPause.innerHTML = '<i class="fas fa-pause"></i>&nbsp; Pause';
     } else {
       activeTitle.textContent = `${activeTask.subject} — ${activeTask.topic}`;
       const m = Math.floor(remaining/60); const s = remaining%60;
       timeDisplay.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
       btnPause.disabled = false; btnReset.disabled = false; btnSkip.disabled = false;
+      btnPause.innerHTML = '<i class="fas fa-pause"></i>&nbsp; Pause';
     }
   }
 
@@ -472,7 +434,8 @@
   function startTimer(){
     if(!activeTask) return;
     if(timerInterval) clearInterval(timerInterval);
-    paused=false; btnPause.textContent = 'Pause';
+    paused=false;
+    btnPause.innerHTML = '<i class="fas fa-pause"></i>&nbsp; Pause';
     timerInterval = setInterval(()=>{
       if(remaining>0){ remaining--; renderActive(); }
       else { clearInterval(timerInterval); timerInterval=null; finishActive(); }
@@ -496,7 +459,7 @@
 
   btnPause.addEventListener('click', ()=>{
     if(!activeTask) return;
-    if(timerInterval){ clearInterval(timerInterval); timerInterval=null; paused=true; btnPause.textContent='Resume'; showToast('Paused'); }
+    if(timerInterval){ clearInterval(timerInterval); timerInterval=null; paused=true; btnPause.innerHTML = '<i class="fas fa-play"></i>&nbsp; Resume'; showToast('Paused'); }
     else { startTimer(); showToast('Resumed'); }
   });
   btnReset.addEventListener('click', ()=>{ if(!activeTask) return; remaining = Number(activeTask.duration)*60; renderActive(); showToast('Timer reset'); });
@@ -511,26 +474,8 @@
     inpSubject.value=''; inpTopic.value=''; inpDuration.value='';
   });
 
-  /* ---------- Queue load/persist ---------- */
-  function loadQueue(){ queue = JSON.parse(localStorage.getItem('sm_queue') || '[]'); }
-  function persistQueue(){ localStorage.setItem('sm_queue', JSON.stringify(queue)); }
-
-  /* ---------- Completed list render (today) ---------- */
-  function renderCompleted(){ /* done above but call here to sync */ 
-    const today = todayKey(new Date());
-    const rec = monthStore[today] && monthStore[today].tasks ? monthStore[today].tasks : [];
-    completedListEl.innerHTML=''; rec.forEach(c=>{
-      const div=document.createElement('div'); div.className='completed-item';
-      div.innerHTML=`<div><strong>${escapeHtml(c.subject)}</strong><div style="font-size:12px;color:#5b7b66">${escapeHtml(c.topic)}</div></div>
-        <div class="completed-meta"><div>${c.duration} min</div><div style="font-size:12px;color:#6b7f91">${c.time}</div></div>`;
-      completedListEl.appendChild(div);
-    });
-    completedCountEl.textContent = `(${rec.length} today)`;
-  }
-
   /* ---------- Monthly Report UI ---------- */
   function showReportView(){
-    btnViewDashboard.disabled = false;
     reportWrap.style.display = 'block';
     document.querySelector('main').style.display = 'none';
     renderMonthGrid(currentMonth);
@@ -544,28 +489,23 @@
   btnViewDashboard.addEventListener('click', ()=>{ showDashboardView(); });
   btnBackDashboard.addEventListener('click', ()=>{ showDashboardView(); });
 
-  prevMonthBtn.addEventListener('click', ()=>{ currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth()-1, 1); monthDataKey = monthKey(currentMonth); monthStore = loadMonthStore(currentMonth); renderMonthGrid(currentMonth); });
-  nextMonthBtn.addEventListener('click', ()=>{ currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth()+1, 1); monthDataKey = monthKey(currentMonth); monthStore = loadMonthStore(currentMonth); renderMonthGrid(currentMonth); });
+  prevMonthBtn.addEventListener('click', ()=>{ currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth()-1, 1); monthStore = loadMonthStore(currentMonth); renderMonthGrid(currentMonth); });
+  nextMonthBtn.addEventListener('click', ()=>{ currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth()+1, 1); monthStore = loadMonthStore(currentMonth); renderMonthGrid(currentMonth); });
 
   function renderMonthGrid(d){
-    // show month label
     const mname = d.toLocaleString('default',{month:'long'}); const yyyy = d.getFullYear();
     reportMonthLabel.textContent = `${mname} ${yyyy}`;
-    // load month store
     monthDataKey = monthKey(d); monthStore = loadMonthStore(d);
-    // build calendar grid for that month (Mon-Sun)
     monthGrid.innerHTML = '';
     const year = d.getFullYear(); const month = d.getMonth();
     const first = new Date(year, month, 1);
     const last = new Date(year, month+1, 0);
     const startWeekday = first.getDay(); // 0 Sun..6 Sat
-    // show weekday headers
     const weekdays = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     for(let i=0;i<7;i++){
       const hd = document.createElement('div'); hd.style.fontWeight='800'; hd.style.color='#556b7b'; hd.style.textAlign='center'; hd.style.padding='6px 0'; hd.textContent = weekdays[i]; monthGrid.appendChild(hd);
     }
-    // calculate fill blanks to align first day (if first day not sunday)
-    // we'll render boxes for each day (including blanks)
+    // calculate boxes
     const totalBoxes = (7 * Math.ceil((startWeekday + last.getDate())/7));
     for(let box=0; box<totalBoxes; box++){
       const idx = box - startWeekday + 1;
@@ -581,7 +521,6 @@
       const dayKey = todayKey(thisDate);
       const rec = monthStore[dayKey] || { tasks: [], total: 0 };
       const total = rec.total || (rec.tasks ? rec.tasks.reduce((a,b)=>a+Number(b.duration),0) : 0);
-      // color class if goal met
       if(total >= DAILY_GOAL_MIN) boxDiv.classList.add('goal-met');
       boxDiv.innerHTML = `<div><div class="day-num">${idx}</div></div>
          <div style="margin-top:8px"><div class="day-min">${total>0? total+'m':''}</div><div style="font-size:12px;color:#9bb0c6">${rec.tasks && rec.tasks.length? rec.tasks.length+' tasks':''}</div></div>`;
@@ -604,7 +543,6 @@
         div.innerHTML = `<strong>${escapeHtml(t.subject)}</strong> — ${escapeHtml(t.topic)} <div style="font-size:12px;color:#6b7f91">${t.duration} min • ${t.time}</div>`;
         dayDetailList.appendChild(div);
       });
-      // pie chart for that day
       const subjectMap = {};
       rec.tasks.forEach(c => subjectMap[c.subject] = (subjectMap[c.subject]||0) + Number(c.duration));
       detailPie.data.labels = Object.keys(subjectMap);
@@ -613,7 +551,6 @@
       detailPie.update();
     }
     dayDetail.style.display = 'block';
-    // scroll to detail
     dayDetail.scrollIntoView({behavior:'smooth'});
   }
 
@@ -627,9 +564,7 @@
   function init(){
     setHeaderDate();
     loadQueue();
-    // load month store for current month
     monthDataKey = monthKey(currentMonth); monthStore = loadMonthStore(currentMonth);
-    // ensure today's record exists in this month's store
     const todayk = todayKey(new Date());
     if(!monthStore[todayk]){ monthStore[todayk] = { tasks: [], total: 0 }; saveMonthStore(); }
     renderQueue(); renderCompleted(); updateProgressAndChart(); renderActive();
@@ -639,8 +574,9 @@
 
   // persist on unload
   window.addEventListener('beforeunload', ()=>{ persistQueue(); saveMonthStore(); });
-  // motivational quotes array
-const quotes = [
+
+  // motivational quotes
+  const quotes = [
   "Success is the sum of small efforts repeated day in and day out.",
   "Don't watch the clock; do what it does — keep going.",
   "Small daily improvements lead to stunning results.",
@@ -649,23 +585,54 @@ const quotes = [
   "The secret of getting ahead is getting started.",
   "Little by little, a little becomes a lot.",
   "Discipline is choosing between what you want now and what you want most.",
-  "Don't stop until you're proud."
+  "Don't stop until you're proud.",
+  "Motivation gets you started. Discipline keeps you going.",
+  "The pain of discipline is far less than the pain of regret.",
+  "Every disciplined action is a step closer to your goal.",
+  "Self-control is strength. Right thought is mastery. Calmness is power.",
+  "Don’t break your chain; your streak is your strength.",
+  "Discipline is the bridge between goals and accomplishment.",
+  "Don’t wait for motivation; create it through discipline.",
+  "What you do daily shapes who you become.",
+  "Discipline is doing what needs to be done, even when you don’t feel like it.",
+  "The habits you build today create the life you live tomorrow.",
+  "Small disciplined actions repeated over time produce extraordinary results."
 ];
 
-const quoteEl = document.getElementById('motivational-quote');
+  const quoteEl = document.getElementById('motivational-quote');
+  function updateQuote() { const idx = Math.floor(Math.random() * quotes.length); quoteEl.textContent = quotes[idx]; }
+  updateQuote();
+  setInterval(updateQuote, 15000);
+  // =====================
+// Streak feature
+// =====================
+const MIN_STUDY_FOR_STREAK = 30; // minimum minutes for a day to count
 
-// function to set a random quote
-function updateQuote() {
-  const idx = Math.floor(Math.random() * quotes.length);
-  quoteEl.textContent = quotes[idx];
+let streak = Number(localStorage.getItem('streak') || 0);
+
+function updateStreak() {
+  const todayStr = todayKey(new Date());
+  const todayTotal = monthStore[todayStr]?.total || 0;
+
+  if (todayTotal < MIN_STUDY_FOR_STREAK) return; // too little, don't count
+
+  const lastDate = localStorage.getItem('lastStreakDate');
+
+  if (lastDate) {
+    const diff = (new Date(todayStr) - new Date(lastDate)) / (1000*60*60*24);
+    if (diff === 1) streak++;      // consecutive day
+    else streak = 1;               // missed day, reset streak
+  } else {
+    streak = 1;                     // first day
+  }
+
+  localStorage.setItem('streak', streak);
+  localStorage.setItem('lastStreakDate', todayStr);
+
+  streakDisplay.textContent = `🔥 Streak: ${streak} days`;
 }
 
-// initial quote on page load
-updateQuote();
-
-// change quote every 15 seconds (or any interval you like)
-setInterval(updateQuote, 15000);
-
+  
 
   </script>
 </body>
